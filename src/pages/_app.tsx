@@ -1,14 +1,15 @@
-import { ApolloClient, ApolloProvider, InMemoryCache } from "@apollo/client";
+import { ApolloProvider } from "@apollo/client";
+import { useApollo } from "../lib/apolloClient";
 import "../styles/globals.css";
+import Navbar from "../components/NavBar";
+import { AppProps } from "next/app";
 
-const client = new ApolloClient({
-  uri: "http://localhost:3000/api/graphql",
-  cache: new InMemoryCache(),
-});
+function TaskManagerApp({ Component, pageProps }: AppProps) {
+  const apolloClient = useApollo(pageProps.initialApolloState);
 
-function TaskManagerApp({ Component, pageProps }) {
   return (
-    <ApolloProvider client={client}>
+    <ApolloProvider client={apolloClient}>
+      <Navbar />
       <Component {...pageProps} />
     </ApolloProvider>
   );

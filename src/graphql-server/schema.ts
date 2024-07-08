@@ -1,8 +1,14 @@
-import { intArg, makeSchema, objectType, asNexusMethod, nonNull } from "nexus";
+import {
+  intArg,
+  makeSchema,
+  objectType,
+  asNexusMethod,
+  nonNull,
+  stringArg,
+} from "nexus";
 import { DateTimeResolver } from "graphql-scalars";
 import { Context } from "./context";
 import path from "path";
-import { Task } from "nexus-prisma";
 
 export const DateTime = asNexusMethod(DateTimeResolver, "date");
 
@@ -17,10 +23,32 @@ export const schema = makeSchema({
           args: {
             id: nonNull(intArg()),
           },
-          resolve: (_parent, args, ctx: Context) => {
+          resolve: (_parent, { id }, ctx) => {
             return ctx.prisma.task.findUnique({
-              where: { id: args.id },
+              where: { id },
+              include: { subTasks: true },
             });
+          },
+        });
+
+        t.list.field("getTasks", {
+          type: "Task",
+          resolve: async (_parent, _args, ctx) => {
+            const tasks = await ctx.prisma.task.findMany();
+
+            const tasksWithSubTaskCount = await Promise.all(
+              tasks.map(async (task) => {
+                const subTaskCount = await ctx.prisma.subTask.count({
+                  where: { taskId: task.id },
+                });
+                const subTasks = await ctx.prisma.subTask.findMany({
+                  where: { taskId: task.id },
+                });
+                return { ...task, subTaskCount, subTasks };
+              })
+            );
+
+            return tasksWithSubTaskCount;
           },
         });
       },
@@ -30,20 +58,86 @@ export const schema = makeSchema({
       definition(t) {
         t.nonNull.field("createTask", {
           type: "Task",
-          args: {},
-          resolve: (_, args, ctx: Context) => {},
+          args: {
+            title: nonNull(stringArg()),
+            description: stringArg(),
+            status: nonNull(stringArg()),
+          },
+          resolve: async (_, args, ctx: Context) => {
+            const newTask = await ctx.prisma.task.create({
+              data: {
+                title: args.title,
+                description: args.description ?? "",
+                status: args.status,
+                createdAt: new Date(),
+              },
+              include: { subTasks: true },
+            });
+            return newTask;
+          },
+        });
+
+        t.field("createSubTask", {
+          type: "SubTask",
+          args: {
+            taskId: nonNull(intArg()),
+            title: nonNull(stringArg()),
+            description: stringArg(),
+            status: nonNull(stringArg()),
+          },
+          resolve: async (_, { taskId, title, description, status }, ctx) => {
+            const subTask = await ctx.prisma.subTask.create({
+              data: {
+                taskId,
+                title,
+                description,
+                status,
+              },
+              include: {
+                task: true,
+              },
+            });
+            return subTask;
+          },
         });
       },
     }),
     objectType({
-      name: Task.$name,
-      description: Task.$description,
+      name: "Task",
       definition(t) {
-        t.nonNull.field(Task.id);
-        t.nonNull.field(Task.title);
-        t.field(Task.description);
-        t.nonNull.field(Task.status);
-        t.nonNull.field(Task.createdAt);
+        t.nonNull.int("id");
+        t.nonNull.string("title");
+        t.string("description");
+        t.nonNull.string("status");
+        t.nonNull.field("createdAt", { type: "DateTime" });
+        t.nonNull.list.field("subTasks", { type: "SubTask" });
+        t.nonNull.int("subTaskCount", {
+          resolve: (parent, _args, ctx: Context) => {
+            return ctx.prisma.subTask.count({
+              where: { taskId: parent.id },
+            });
+          },
+        });
+      },
+    }),
+    objectType({
+      name: "SubTask",
+      definition(t) {
+        t.nonNull.int("id");
+        t.nonNull.string("title");
+        t.string("description");
+        t.nonNull.string("status");
+        t.nonNull.field("createdAt", { type: "DateTime" });
+        t.nonNull.int("taskId");
+        t.field("task", {
+          type: "Task",
+          resolve: (parent, _args, ctx: Context) => {
+            return ctx.prisma.task.findUnique({
+              where: { id: parent.taskId },
+              include: { subTasks: true },
+            });
+          },
+        });
       },
     }),
   ],
