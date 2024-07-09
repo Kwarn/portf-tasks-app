@@ -14,7 +14,7 @@ const TasksList = () => {
 
   if (!data || !data.getTasks.length) return <p>No tasks found</p>;
 
-  const handleTaskClick = (id: number) => {
+  const handleTaskClick = (id: string) => {
     router.push(`/task/${id}`);
   };
 

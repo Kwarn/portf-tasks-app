@@ -14,7 +14,7 @@ export const GET_TASKS = graphql(`
 `);
 
 export const GET_TASK = graphql(`
-  query GetTask($id: Int!) {
+  query GetTask($id: String!) {
     getTask(id: $id) {
       id
       title

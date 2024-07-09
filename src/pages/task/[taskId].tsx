@@ -1,14 +1,28 @@
+import { useRouter } from "next/router";
 import Head from "next/head";
-import { initializeApollo } from "../../lib/apolloClient";
+import { useQuery } from "@apollo/client";
 import { GetTaskQuery } from "../../gql/graphql";
 import styled from "styled-components";
 import { GET_TASK } from "../../graphql-server/queries";
 
-interface TaskProps {
-  task: GetTaskQuery["getTask"];
-}
+const Task: React.FC = () => {
+  const router = useRouter();
+  const { taskId } = router.query;
 
-const Task: React.FC<TaskProps> = ({ task }) => {
+  const { data, loading, error } = useQuery<GetTaskQuery>(GET_TASK, {
+    variables: { id: taskId },
+    skip: !taskId,
+  });
+
+  if (!taskId) return <p>Loading...</p>;
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
+  const task = data?.getTask;
+
+  if (!task) return <p>No task found</p>;
+
   return (
     <Container>
       <Head>
@@ -38,23 +52,6 @@ const Task: React.FC<TaskProps> = ({ task }) => {
       </Main>
     </Container>
   );
-};
-
-export const getServerSideProps = async (context) => {
-  const { taskId } = context.params;
-  const apolloClient = initializeApollo();
-
-  const { data } = await apolloClient.query({
-    query: GET_TASK,
-    variables: { id: Number(taskId) },
-  });
-
-  return {
-    props: {
-      task: data.getTask,
-      initialApolloState: apolloClient.cache.extract(),
-    },
-  };
 };
 
 const Container = styled.div`

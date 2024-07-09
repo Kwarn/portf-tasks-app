@@ -16,7 +16,7 @@ export default function AddTaskForm() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState("");
-  const [taskId, setTaskId] = useState<number | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const {
@@ -118,7 +118,7 @@ export default function AddTaskForm() {
             <Select
               id="task"
               value={taskId || ""}
-              onChange={(e) => setTaskId(Number(e.target.value))}
+              onChange={(e) => setTaskId(e.target.value)}
             >
               <option value="">None</option>
               {tasksData.getTasks.map((task) => (

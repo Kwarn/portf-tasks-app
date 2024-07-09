@@ -9,8 +9,18 @@ import {
 import { DateTimeResolver } from "graphql-scalars";
 import { Context } from "./context";
 import path from "path";
+import createCacheWrapper from "../dbCache/cacheWrapper";
 
 export const DateTime = asNexusMethod(DateTimeResolver, "date");
+
+const cacheWrapper = createCacheWrapper();
+
+const getCachedSubTasks = cacheWrapper(async (taskId: string, ctx: Context) => {
+  const subTasks = await ctx.prisma.subTask.findMany({
+    where: { taskId },
+  });
+  return subTasks;
+});
 
 export const schema = makeSchema({
   types: [
@@ -21,13 +31,14 @@ export const schema = makeSchema({
         t.field("getTask", {
           type: "Task",
           args: {
-            id: nonNull(intArg()),
+            id: nonNull(stringArg()),
           },
-          resolve: (_parent, { id }, ctx) => {
-            return ctx.prisma.task.findUnique({
+          resolve: async (_parent, { id }, ctx) => {
+            const task = await ctx.prisma.task.findUnique({
               where: { id },
               include: { subTasks: true },
             });
+            return task;
           },
         });
 
@@ -41,9 +52,7 @@ export const schema = makeSchema({
                 const subTaskCount = await ctx.prisma.subTask.count({
                   where: { taskId: task.id },
                 });
-                const subTasks = await ctx.prisma.subTask.findMany({
-                  where: { taskId: task.id },
-                });
+                const subTasks = await getCachedSubTasks(task.id, ctx);
                 return { ...task, subTaskCount, subTasks };
               })
             );
@@ -80,7 +89,7 @@ export const schema = makeSchema({
         t.field("createSubTask", {
           type: "SubTask",
           args: {
-            taskId: nonNull(intArg()),
+            taskId: nonNull(stringArg()),
             title: nonNull(stringArg()),
             description: stringArg(),
             status: nonNull(stringArg()),
@@ -105,7 +114,7 @@ export const schema = makeSchema({
     objectType({
       name: "Task",
       definition(t) {
-        t.nonNull.int("id");
+        t.nonNull.string("id");
         t.nonNull.string("title");
         t.string("description");
         t.nonNull.string("status");
@@ -123,19 +132,20 @@ export const schema = makeSchema({
     objectType({
       name: "SubTask",
       definition(t) {
-        t.nonNull.int("id");
+        t.nonNull.string("id");
         t.nonNull.string("title");
         t.string("description");
         t.nonNull.string("status");
         t.nonNull.field("createdAt", { type: "DateTime" });
-        t.nonNull.int("taskId");
+        t.nonNull.string("taskId");
         t.field("task", {
           type: "Task",
-          resolve: (parent, _args, ctx: Context) => {
-            return ctx.prisma.task.findUnique({
+          resolve: async (parent, _args, ctx: Context) => {
+            const task = await ctx.prisma.task.findUnique({
               where: { id: parent.taskId },
               include: { subTasks: true },
             });
+            return task;
           },
         });
       },

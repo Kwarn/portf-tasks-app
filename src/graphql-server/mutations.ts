@@ -14,7 +14,7 @@ export const CREATE_TASK = graphql(`
 
 export const CREATE_SUBTASK = graphql(`
   mutation CreateSubTask(
-    $taskId: Int!
+    $taskId: String!
     $title: String!
     $description: String
     $status: String!
